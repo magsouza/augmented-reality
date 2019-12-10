@@ -1,26 +1,26 @@
+#include <iostream>
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/highgui.hpp>
-#include <iostream>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/xfeatures2d.hpp>
-#include <opencv2/calib3d.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
+#include <opencv2/core/types_c.h>
 
 using namespace cv;
 using namespace std;
         
 int main() {
-    namedWindow("Teste", WINDOW_NORMAL);
+    namedWindow("Window", WINDOW_NORMAL);
     Mat image1, image2, imageAux;
-    VideoCapture cap(0); // rename video
-    if (!cap.isOpened()) { //verifica se cap abriu como esperado
+    VideoCapture cap(""); // capture video
+    if (!cap.isOpened()) { // verify cap
         cout << "camera ou arquivo em falta";
         return 1;
     }
 
-    image1 = imread("dc.jpg", IMREAD_GRAYSCALE); // rename image
+    image1 = imread("", IMREAD_GRAYSCALE); // read image
 
-    if (image1.empty()) { //verifica a imagem1
+    if (image1.empty()) { // verify imagem1
         cout << "imagem 1 vazia";
         return 1;
     }
@@ -37,20 +37,16 @@ int main() {
         vector<KeyPoint> kp1, kp2;
         Mat descriptor1, descriptor2;
     
-        Ptr<Feature2D> orb = ORB::create(400);
-//        Ptr<Feature2D> orb = xfeatures2d::SURF::create(400);
+        Ptr<Feature2D> orb = ORB::create(400); // using ORB
         orb->detectAndCompute(image1, Mat(), kp1, descriptor1);
         orb->detectAndCompute(image2, Mat(), kp2, descriptor2);
-        descriptor1.convertTo(descriptor1, CV_32F); descriptor2.convertTo(descriptor2, CV_32F);
+        descriptor1.convertTo(descriptor1, CV_32F);
+        descriptor2.convertTo(descriptor2, CV_32F);
         
        if ( descriptor1.empty() )
            break;
         if ( descriptor2.empty() )
             continue;
-/*
-        Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(DescriptorMatcher::FLANNBASED);
-        vector< vector<DMatch> > knn_matches;
-        matcher->knnMatch( descriptor1, descriptor2, knn_matches, 2 );*/
         
         FlannBasedMatcher matcher;
         vector< DMatch > matches;
@@ -66,8 +62,34 @@ int main() {
 
         drawMatches( image1, kp1, image2, kp2, good_matches, imageAux, Scalar::all(-1),
                         Scalar::all(-1), vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-
-        imshow("Teste", imageAux);
+        //-- Homography
+        vector<Point2f> obj;
+        vector<Point2f> scene;
+        
+        for (int i = 0; i < good_matches.size(); i++) {
+            obj.push_back(kp1[good_matches[i].queryIdx].pt);
+            scene.push_back(kp2[good_matches[i].trainIdx].pt);
+        }
+        
+        Mat H = findHomography( obj, scene, RANSAC );
+        
+        vector<Point2f> obj_corners(4);
+        obj_corners[0] = cvPoint(0, 0);
+        obj_corners[1] = cvPoint(image1.cols,0);
+        obj_corners[2] = cvPoint(image1.cols, image1.rows);
+        obj_corners[3] = cvPoint(0, image1.rows);
+        vector<Point2f> scene_corners(4);
+        
+        perspectiveTransform(obj_corners, scene_corners, H);
+        
+        //-- Draw lines between the corners (the mapped object in the scene - image2 )
+        line( imageAux, scene_corners[0] + Point2f( image1.cols, 0), scene_corners[1] + Point2f( image1.cols, 0), Scalar(0, 255, 0), 4 );
+        line( imageAux, scene_corners[1] + Point2f( image1.cols, 0), scene_corners[2] + Point2f( image1.cols, 0), Scalar( 0, 255, 0), 4 );
+        line( imageAux, scene_corners[2] + Point2f( image1.cols, 0), scene_corners[3] + Point2f( image1.cols, 0), Scalar( 0, 255, 0), 4 );
+        line( imageAux, scene_corners[3] + Point2f( image1.cols, 0), scene_corners[0] + Point2f( image1.cols, 0), Scalar( 0, 255, 0), 4 );
+        
+        //-- Show image
+        imshow("Window", imageAux);
 
         if (waitKey(1) == 27) {
             break;
