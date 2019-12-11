@@ -12,13 +12,14 @@ using namespace std;
 int main() {
     namedWindow("Window", WINDOW_NORMAL);
     Mat image1, image2, imageAux;
-    VideoCapture cap(""); // capture video
+    //VideoCapture cap(); // webcam capture video
+    VideoCapture cap("./assets/VIDEO"); // mp4 capture video
     if (!cap.isOpened()) { // verify cap
         cout << "camera ou arquivo em falta";
         return 1;
     }
 
-    image1 = imread("", IMREAD_GRAYSCALE); // read image
+    image1 = imread("./assets/IMAGEM", IMREAD_GRAYSCALE); // read image
 
     if (image1.empty()) { // verify imagem1
         cout << "imagem 1 vazia";
